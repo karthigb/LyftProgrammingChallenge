@@ -1,6 +1,7 @@
 import com.google.maps.DirectionsApi;
 import com.google.maps.DirectionsApiRequest;
 import com.google.maps.GeoApiContext;
+import com.google.maps.model.DirectionsLeg;
 import com.google.maps.model.DirectionsRoute;
 import com.google.maps.model.Distance;
 
@@ -9,19 +10,31 @@ public class DetourChallenge {
     private static final String KEY = System.getenv().get("GOOGLE_API_KEY");
 
     /**
-     * Get the distance it would take for a car to travel between two points
-     * @param a A string representation of the starting point in terms of latitude and longitude
-     * @param b A string representation of the end point in terms of latitude and longitude
+     * Get the distance it would take for a car to travel between two points with a pickup and dropoff
+     * in the middle
+     * @param aStart A string representation of the starting point in terms of latitude and longitude
+     * @param aEnd A string representation of the end point
+     * @param bStart A string representation of the passenger pickup location
+     * @param bEnd A string representation of the passenger drop off location
      * @return a long representing the distance of the trip in meters
      * @throws Exception
      */
-    public static long getDistance(String a, String b) throws Exception {
-        GeoApiContext context = new GeoApiContext().setApiKey(KEY);
-        DirectionsApiRequest req = DirectionsApi.getDirections(context,a,b);
+    public static long getDistance(String aStart, String aEnd,String bStart, String bEnd) throws Exception {
 
+        GeoApiContext context = new GeoApiContext().setApiKey(KEY);
+        DirectionsApiRequest req = DirectionsApi.getDirections(context,aStart,aEnd);
+
+        //Set detour way points
+        req = req.waypoints(bStart,bEnd);
+
+        //Make API call to get route
         DirectionsRoute[] route = req.await();
-        Distance distanceAtoB = route[0].legs[0].distance;
-        return distanceAtoB.inMeters;
+
+        long distance = 0;
+        for(DirectionsLeg currentLeg: route[0].legs){
+            distance += currentLeg.distance.inMeters;
+        }
+        return distance;
 
     }
 
@@ -36,16 +49,10 @@ public class DetourChallenge {
      */
     public static int getShortestDetour(String aStart, String aEnd, String bStart, String bEnd) throws Exception {
         //Driver A detours to get B, then proceeds to destination
-        long distanceAtoB = getDistance(aStart,bStart);
-        long distanceBtrip = getDistance(bStart,bEnd);
-        long distanceAresume = getDistance(bEnd,aEnd);
-        long detourA = distanceAtoB + distanceBtrip + distanceAresume;
+        long detourA = getDistance(aStart,aEnd,bStart,bEnd);
 
         //Driver B detours to get A, then proceeds to destination
-        long distanceBtoA = getDistance(bStart,aStart);
-        long distanceAtrip = getDistance(aStart,aEnd);
-        long distanceBresume = getDistance(aEnd,bEnd);
-        long detourB = distanceBtoA + distanceAtrip + distanceBresume;
+        long detourB = getDistance(bStart,bEnd,aStart,aEnd);
 
         if(detourA<detourB){
             System.out.println("A picks up B. (" + detourA + " meters)");
